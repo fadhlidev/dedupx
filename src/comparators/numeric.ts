@@ -1,4 +1,4 @@
-import { type Comparator } from "./index";
+import { type Comparator } from "@/comparators/index";
 
 export class NumericComparator implements Comparator {
   compare(a: string, b: string, options?: { max_relative_diff?: number }): number {
