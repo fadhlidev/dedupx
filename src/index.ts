@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { loadConfig } from "@/config/loader";
 import { getDbClient } from "@/db/client";
 import { fetchRows } from "@/db/query";
+import { runDedup } from "@/engine/dedup";
 import chalk from "chalk";
 
 function getErrorMessage(error: any): string {
@@ -47,13 +48,36 @@ program
       dbClientWrapper = await getDbClient(config);
       console.log(chalk.green("✓ Database connection successful."));
 
-      // --- Placeholder for actual deduplication logic (Phase 3 onwards) ---
-      console.log(chalk.magenta("Starting deduplication process (placeholder)..."));
-      // Example: Fetch some rows to demonstrate DB connection
-      const sampleRows = await fetchRows(dbClientWrapper.db, config.source.table, 5);
-      console.log(chalk.dim("  Fetched sample rows:"));
-      sampleRows.forEach((row, idx) => console.log(chalk.dim(`    ${idx + 1}. ${JSON.stringify(row).substring(0, 80)}...`)));
-      console.log(chalk.green("\n✓ Deduplication process completed (placeholder)."));
+      console.log(chalk.cyan("Fetching all rows from source table..."));
+      const allRows = await fetchRows(dbClientWrapper.db, config.source.table);
+      console.log(chalk.green(`✓ Fetched ${allRows.length} rows.`));
+
+      console.log(chalk.magenta("Starting deduplication process..."));
+      const startTime = performance.now();
+      const groupMap = await runDedup(allRows, config);
+      const endTime = performance.now();
+      console.log(chalk.green(`✓ Deduplication process completed in ${((endTime - startTime) / 1000).toFixed(2)}s.`));
+
+      // Analyze results from groupMap
+      let duplicateCount = 0;
+      const uniqueGroupRoots = new Set<string>();
+      for (const [rowId, canonicalId] of groupMap) {
+        uniqueGroupRoots.add(canonicalId);
+        if (rowId !== canonicalId) {
+          duplicateCount++;
+        }
+      }
+      const totalGroups = uniqueGroupRoots.size;
+      const uniqueRecords = totalGroups; // Each group root represents one unique record
+
+      console.log(chalk.bold.green("\n┌──────────────────────────────┐"));
+      console.log(chalk.bold.green("│  Results Summary             │"));
+      console.log(chalk.bold.green("├──────────────────────────────┤"));
+      console.log(chalk.green(`│  Total rows       ${allRows.length.toLocaleString().padEnd(10)} │`));
+      console.log(chalk.green(`│  Duplicate groups   ${totalGroups.toLocaleString().padEnd(10)} │`));
+      console.log(chalk.green(`│  Duplicates found   ${duplicateCount.toLocaleString().padEnd(10)} │`));
+      console.log(chalk.green(`│  Unique records    ${uniqueRecords.toLocaleString().padEnd(10)} │`));
+      console.log(chalk.bold.green("└──────────────────────────────┘"));
 
     } catch (error: any) {
       console.error(chalk.red(`\n❌ Error during deduplication: ${getErrorMessage(error)}`));

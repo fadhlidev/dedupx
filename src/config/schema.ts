@@ -22,8 +22,8 @@ export const ConfigSchema = z.object({
   rules: z.array(RuleSchema).min(1),
   threshold: z.number().min(0).max(1),
   processing: z.object({
-    batch_size: z.int().positive().default(500),
-    concurrency: z.int().min(1).max(32).default(4),
+    batch_size: z.number().int().positive().default(500),
+    concurrency: z.number().int().min(1).max(32).default(4),
     strategy: z.enum(["block", "full_scan"]).default("block"),
     blocking_column: z.string().optional(),
   }).default({
