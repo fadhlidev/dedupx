@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
-import { Row } from "@/engine/types";
+import type { Row } from "@/engine/types";
 
 export async function fetchRows(db: any, tableName: string, limit?: number): Promise<Row[]> {
   let query = sql`SELECT * FROM ${sql.raw(tableName)}`;
   if (limit !== undefined) {
     query = sql`SELECT * FROM ${sql.raw(tableName)} LIMIT ${limit}`;
   }
-  
+
   let rawRows: any[];
   // Drizzle clients have different execution methods
   if (typeof db.execute === "function") {

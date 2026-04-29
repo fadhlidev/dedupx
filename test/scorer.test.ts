@@ -1,7 +1,7 @@
 import { test, expect, spyOn } from "bun:test";
 import { scoreRows } from "@/engine/scorer";
-import { Rule } from "@/config/schema";
-import { Row } from "@/engine/types";
+import type { Rule } from "@/config/schema";
+import type { Row } from "@/engine/types";
 import "@/comparators"; // Ensure comparators are registered
 
 test("scoreRows should return 1.0 for exact matches with single rule", () => {
@@ -81,10 +81,10 @@ test("scoreRows should warn and skip unknown comparators", () => {
     { name: "unknown", columns: ["name"], comparator: "unknown_comparator" as any, weight: 1.0 }
   ];
 
-  const consoleWarnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  const consoleWarnSpy = spyOn(console, "warn").mockImplementation(() => { });
 
   expect(scoreRows(row1, row2, rules)).toBe(0.0);
   expect(consoleWarnSpy).toHaveBeenCalled();
-  
+
   consoleWarnSpy.mockRestore();
 });

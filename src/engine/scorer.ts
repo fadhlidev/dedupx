@@ -1,6 +1,6 @@
-import { Rule } from "@/config/schema";
+import type { Rule } from "@/config/schema";
 import { comparatorRegistry } from "@/comparators";
-import { Row } from "@/engine/types";
+import type { Row } from "@/engine/types";
 
 /**
  * Calculates a combined similarity score between two Row objects based on configured rules.
