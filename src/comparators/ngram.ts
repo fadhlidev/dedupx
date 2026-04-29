@@ -1,4 +1,4 @@
-import { type Comparator } from "./index";
+import { type Comparator } from "@/comparators/index";
 
 export class NgramComparator implements Comparator {
   compare(a: string, b: string, options?: { n?: number }): number {
