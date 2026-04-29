@@ -9,9 +9,21 @@
     "clean": "rm -rf dedupx"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "drizzle-orm": "^0.45.2",
+    "js-yaml": "^4.1.1",
+    "mysql2": "^3.22.3",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
   }
 }

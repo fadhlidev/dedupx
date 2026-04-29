@@ -1,0 +1,29 @@
+# config.example.yaml
+source:
+  connection: "postgresql://user:pass@localhost:5432/mydb"
+  driver: postgres        # postgres | mysql | sqlite
+  table: customers
+
+output:
+  schema: public          # optional, defaults to same as source
+
+rules:
+  - name: "email exact match"
+    columns: [email]
+    comparator: exact
+    weight: 1.0
+
+  - name: "name fuzzy match"
+    columns: [first_name, last_name]
+    comparator: fuzzy
+    options:
+      algorithm: jaro_winkler
+    weight: 0.6
+
+threshold: 0.80
+
+processing:
+  batch_size: 500
+  concurrency: 4
+  strategy: block
+  blocking_column: last_name
