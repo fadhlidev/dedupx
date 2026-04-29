@@ -1,0 +1,17 @@
+{
+  "name": "dedupx",
+  "version": "0.1.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun build --compile src/index.ts --minify --outfile dedupx",
+    "clean": "rm -rf dedupx"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
