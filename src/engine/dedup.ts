@@ -66,7 +66,7 @@ export async function runDedup(
         return pool!.run(workerInput).then((result: WorkerOutput) => {
           if (progressBar) progressBar.increment("Comparing pairs");
           return result;
-        }).catch(err => {
+        }).catch((err: unknown) => {
           logger.error("Worker error:", err);
           throw err;
         });

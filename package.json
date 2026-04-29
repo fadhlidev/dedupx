@@ -27,6 +27,7 @@
     "fastest-levenshtein": "^1.0.16",
     "js-yaml": "^4.1.1",
     "mysql2": "^3.22.3",
+    "piscina": "^5.1.4",
     "pg": "^8.20.0",
     "zod": "^4.3.6"
   }
