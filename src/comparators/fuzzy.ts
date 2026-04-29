@@ -1,5 +1,5 @@
 import { distance as levenshteinDistance } from "fastest-levenshtein";
-import { type Comparator } from "./index";
+import { type Comparator } from "@/comparators/index";
 
 export class FuzzyComparator implements Comparator {
   compare(a: string, b: string, options?: { algorithm?: "levenshtein" | "jaro_winkler" }): number {

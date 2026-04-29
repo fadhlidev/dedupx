@@ -9,17 +9,17 @@ export interface Comparator {
 }
 
 // Export individual comparators
-export { ExactComparator } from "./exact";
-export { FuzzyComparator } from "./fuzzy";
-export { SoundexComparator } from "./soundex";
-export { NgramComparator } from "./ngram";
-export { NumericComparator } from "./numeric";
+export { ExactComparator } from "@/comparators/exact";
+export { FuzzyComparator } from "@/comparators/fuzzy";
+export { SoundexComparator } from "@/comparators/soundex";
+export { NgramComparator } from "@/comparators/ngram";
+export { NumericComparator } from "@/comparators/numeric";
 
-import { ExactComparator } from "./exact";
-import { FuzzyComparator } from "./fuzzy";
-import { SoundexComparator } from "./soundex";
-import { NgramComparator } from "./ngram";
-import { NumericComparator } from "./numeric";
+import { ExactComparator } from "@/comparators/exact";
+import { FuzzyComparator } from "@/comparators/fuzzy";
+import { SoundexComparator } from "@/comparators/soundex";
+import { NgramComparator } from "@/comparators/ngram";
+import { NumericComparator } from "@/comparators/numeric";
 
 // Export the comparator registry
 export const comparatorRegistry: Record<string, Comparator> = {
