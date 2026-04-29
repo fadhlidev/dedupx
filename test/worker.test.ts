@@ -28,7 +28,7 @@ test("processBlock should identify exact duplicate pairs", () => {
   ];
   const input: WorkerInput = { rows, rules, threshold: 0.8 };
   const result = processBlock(input);
-  expect(result).toEqual([["1", "2"]]);
+  expect(result).toEqual([{ idA: "1", idB: "2", score: 1.0, matchedRules: ["name exact"] }]);
 });
 
 test("processBlock should identify fuzzy duplicate pairs above threshold", () => {
@@ -45,7 +45,7 @@ test("processBlock should identify fuzzy duplicate pairs above threshold", () =>
 
   // "John Doe" vs "Jhon Doe" should score high (>0.8 via jaro_winkler)
   expect(result.length).toBe(1);
-  expect(result[0]).toEqual(["1", "2"]);
+  expect(result[0]).toEqual({ idA: "1", idB: "2", score: expect.any(Number), matchedRules: ["name fuzzy"] });
 });
 
 test("processBlock should return multiple duplicate pairs when multiple matches exist", () => {
@@ -62,9 +62,9 @@ test("processBlock should return multiple duplicate pairs when multiple matches 
 
   // All pairs: (1,2), (1,3), (2,3)
   expect(result).toEqual([
-    ["1", "2"],
-    ["1", "3"],
-    ["2", "3"],
+    { idA: "1", idB: "2", score: 1.0, matchedRules: ["name exact"] },
+    { idA: "1", idB: "3", score: 1.0, matchedRules: ["name exact"] },
+    { idA: "2", idB: "3", score: 1.0, matchedRules: ["name exact"] },
   ]);
 });
 
@@ -117,5 +117,5 @@ test("processBlock should use weighted rules correctly", () => {
   // With threshold 0.6, this should match
   const input: WorkerInput = { rows, rules, threshold: 0.6 };
   const result = processBlock(input);
-  expect(result).toEqual([["1", "2"]]);
+  expect(result).toEqual([{ idA: "1", idB: "2", score: 0.7, matchedRules: ["email exact"] }]);
 });

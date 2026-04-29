@@ -1,9 +1,17 @@
 import { Command } from "commander";
 import { loadConfig } from "@/config/loader";
 import { getDbClient } from "@/db/client";
-import { fetchRows } from "@/db/query";
+import { fetchRows, createResultTable, insertDedupResults } from "@/db/query";
 import { runDedup } from "@/engine/dedup";
+import { DedupProgressBar } from "@/reporter/progress";
 import chalk from "chalk";
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
 
 function getErrorMessage(error: any): string {
   if (error instanceof Error) {
@@ -48,15 +56,25 @@ program
       dbClientWrapper = await getDbClient(config);
       console.log(chalk.green("✓ Database connection successful."));
 
-      console.log(chalk.cyan("Fetching all rows from source table..."));
-      const allRows = await fetchRows(dbClientWrapper.db, config.source.table);
-      console.log(chalk.green(`✓ Fetched ${allRows.length} rows.`));
+      const progressBar = new DedupProgressBar();
 
-      console.log(chalk.magenta("Starting deduplication process..."));
+      progressBar.start("Loading rows", 1);
+      const allRows = await fetchRows(dbClientWrapper.db, config.source.table);
+      progressBar.stop("Loading rows", `✓ Fetched ${allRows.length} rows`);
+
       const startTime = performance.now();
-      const groupMap = await runDedup(allRows, config);
+      const { groupMap, dedupMetadata } = await runDedup(allRows, config, progressBar);
       const endTime = performance.now();
-      console.log(chalk.green(`✓ Deduplication process completed in ${((endTime - startTime) / 1000).toFixed(2)}s.`));
+
+      progressBar.start("Writing results", dedupMetadata.length);
+      const outputTableName = `${config.source.table}_dedup_${Date.now()}`;
+      await createResultTable(dbClientWrapper, config.source.table, outputTableName, "id");
+      await insertDedupResults(dbClientWrapper, outputTableName, dedupMetadata, "id", undefined, progressBar);
+      progressBar.stop("Writing results");
+
+      progressBar.stopAll();
+
+      console.log(chalk.green(`\n✓ Deduplication process completed in ${((endTime - startTime) / 1000).toFixed(2)}s.`));
 
       // Analyze results from groupMap
       let duplicateCount = 0;
@@ -70,16 +88,36 @@ program
       const totalGroups = uniqueGroupRoots.size;
       const uniqueRecords = totalGroups; // Each group root represents one unique record
 
-      console.log(chalk.bold.green("\n┌──────────────────────────────┐"));
-      console.log(chalk.bold.green("│  Results Summary             │"));
-      console.log(chalk.bold.green("├──────────────────────────────┤"));
-      console.log(chalk.green(`│  Total rows       ${allRows.length.toLocaleString().padEnd(10)} │`));
-      console.log(chalk.green(`│  Duplicate groups   ${totalGroups.toLocaleString().padEnd(10)} │`));
-      console.log(chalk.green(`│  Duplicates found   ${duplicateCount.toLocaleString().padEnd(10)} │`));
-      console.log(chalk.green(`│  Unique records    ${uniqueRecords.toLocaleString().padEnd(10)} │`));
-      console.log(chalk.bold.green("└──────────────────────────────┘"));
+      const summaryLines = [
+        `Total rows         ${allRows.length.toLocaleString()}`,
+        `Duplicate groups   ${totalGroups.toLocaleString()}`,
+        `Duplicates found   ${duplicateCount.toLocaleString()}`,
+        `Unique records     ${uniqueRecords.toLocaleString()}`,
+        `Output table:`,
+        outputTableName
+      ];
+
+      const minWidth = 28;
+      const contentWidth = Math.max(minWidth, "Results Summary".length, ...summaryLines.map(l => l.length));
+      
+      const topBorder = `┌${"─".repeat(contentWidth + 2)}┐`;
+      const midBorder = `├${"─".repeat(contentWidth + 2)}┤`;
+      const botBorder = `└${"─".repeat(contentWidth + 2)}┘`;
+
+      console.log(chalk.bold.green(`\n${topBorder}`));
+      console.log(chalk.bold.green(`│ ${"Results Summary".padEnd(contentWidth)} │`));
+      console.log(chalk.bold.green(midBorder));
+      console.log(chalk.green(`│ ${summaryLines[0]!.padEnd(contentWidth)} │`));
+      console.log(chalk.green(`│ ${summaryLines[1]!.padEnd(contentWidth)} │`));
+      console.log(chalk.green(`│ ${summaryLines[2]!.padEnd(contentWidth)} │`));
+      console.log(chalk.green(`│ ${summaryLines[3]!.padEnd(contentWidth)} │`));
+      console.log(chalk.bold.green(midBorder));
+      console.log(chalk.green(`│ ${summaryLines[4]!.padEnd(contentWidth)} │`));
+      console.log(chalk.green(`│ ${summaryLines[5]!.padEnd(contentWidth)} │`));
+      console.log(chalk.bold.green(botBorder));
 
     } catch (error: any) {
+      console.error("RAW ERROR CAUGHT:", error);
       console.error(chalk.red(`\n❌ Error during deduplication: ${getErrorMessage(error)}`));
       process.exit(1);
     } finally {

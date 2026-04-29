@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/cli-progress": "^3.11.6",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0"
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "chalk": "^5.6.2",
+    "cli-progress": "^3.12.0",
     "commander": "^14.0.3",
     "drizzle-orm": "^0.45.2",
     "fastest-levenshtein": "^1.0.16",

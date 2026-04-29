@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { type Config } from "@/config/schema";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import pg from "pg";
@@ -13,6 +14,7 @@ export type DrizzleDbClient = any;
 export interface DbClientWrapper {
   db: DrizzleDbClient;
   close: () => Promise<void> | void; // Close method might be async or sync depending on driver
+  sql: typeof sql;
 }
 
 export async function getDbClient(config: Config): Promise<DbClientWrapper> {
@@ -26,6 +28,7 @@ export async function getDbClient(config: Config): Promise<DbClientWrapper> {
       return {
         db: db,
         close: async () => await client.end(), // Close the pg client
+        sql,
       };
     }
     case "mysql": {
@@ -36,6 +39,7 @@ export async function getDbClient(config: Config): Promise<DbClientWrapper> {
       return {
         db: db,
         close: async () => await pool.end(), // Close the mysql pool
+        sql,
       };
     }
     case "sqlite": {
@@ -45,6 +49,7 @@ export async function getDbClient(config: Config): Promise<DbClientWrapper> {
       return {
         db: db,
         close: () => sqliteDb.close(), // Close the Bun SQLite database
+        sql,
       };
     }
     default:
