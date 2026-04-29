@@ -27,6 +27,7 @@ bun run clean  # removes binary
 
 - **Workflow**: Always develop using `nix develop` to ensure the correct toolchain.
 - **New Functions**: If you introduce a new function, you MUST also create corresponding tests for it.
+- **Imports**: Use `@/` path alias instead of relative paths (e.g., `import { foo } from "@/utils"` not `../utils`).
 
 ## Commit Messages
 Format: `[action]: [message]` (e.g., `add: new endpoint`, `fix: memory leak in cache`)
