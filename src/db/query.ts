@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { Row } from "@/engine/types";
 import type { DbClientWrapper } from "@/db/client";
+import { logger } from "@/utils/logger";
 
 export async function fetchRows(db: any, tableName: string, limit?: number): Promise<Row[]> {
   let query = sql`SELECT * FROM ${sql.raw(tableName)}`;
@@ -9,6 +10,7 @@ export async function fetchRows(db: any, tableName: string, limit?: number): Pro
   }
 
   let rawRows: any[];
+  logger.debug(`Executing query: ${query.query}`);
   // Drizzle clients have different execution methods
   if (typeof db.execute === "function") {
     const result = await db.execute(query);
@@ -42,6 +44,8 @@ export async function createResultTable(
   const fullOutputTableName = `${schemaPrefix}${outputTableName}`;
   const fullSourceTableName = `${schemaPrefix}${sourceTable}`;
 
+  logger.info(`Creating result table '${fullOutputTableName}' from '${fullSourceTableName}'`);
+
   // CREATE TABLE ... AS SELECT to copy schema and data
   const createTableQuery = sql`
     CREATE TABLE ${sql.raw(fullOutputTableName)} AS
@@ -57,13 +61,17 @@ export async function createResultTable(
   ];
 
   if (typeof db.execute === "function") {
+    logger.debug(`Executing query: ${createTableQuery.query}`);
     await db.execute(createTableQuery);
     for (const col of columnsToAdd) {
+      logger.debug(`Adding column ${col} to ${fullOutputTableName}`);
       await db.execute(sql`ALTER TABLE ${sql.raw(fullOutputTableName)} ADD COLUMN ${sql.raw(col)}`);
     }
   } else if (typeof db.run === "function") {
+    logger.debug(`Executing query: ${createTableQuery.query}`);
     await db.run(createTableQuery);
     for (const col of columnsToAdd) {
+      logger.debug(`Adding column ${col} to ${fullOutputTableName}`);
       await db.run(sql`ALTER TABLE ${sql.raw(fullOutputTableName)} ADD COLUMN ${sql.raw(col)}`);
     }
   } else {
@@ -82,6 +90,8 @@ export async function insertDedupResults(
   const { db } = dbClientWrapper;
   const schemaPrefix = outputSchema ? `${outputSchema}.` : "";
   const fullOutputTableName = `${schemaPrefix}${outputTableName}`;
+
+  logger.info(`Inserting ${results.length} deduplication results into '${fullOutputTableName}'`);
 
   // Update rows in batch or individually
   // Since Drizzle's raw sql doesn't easily support dynamic multi-row UPDATE ... FROM VALUES in a cross-db way
