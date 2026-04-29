@@ -24,6 +24,6 @@ threshold: 0.80
 
 processing:
   batch_size: 500
-  concurrency: 4
-  strategy: block
-  blocking_column: last_name
+  concurrency: 4          # number of worker threads for parallel block processing
+  strategy: block          # block | full_scan
+  blocking_column: last_name # column used to partition rows into blocks
