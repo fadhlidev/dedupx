@@ -18,7 +18,7 @@ export class SoundexComparator implements Comparator {
     s = s.toUpperCase().replace(/[^A-Z]/g, ""); // Convert to uppercase, remove non-alphabetic
     if (!s) return "";
 
-    let code = s[0];
+    let code = s[0] ?? "";
     const mappings: Record<string, string> = {
       B: "1", F: "1", P: "1", V: "1",
       C: "2", G: "2", J: "2", K: "2", Q: "2", S: "2", X: "2", Z: "2",

@@ -36,7 +36,7 @@ describe("Database Client & Query", () => {
 
     const rows = await fetchRows(db, "test_table", 10);
     expect(rows.length).toBe(2);
-    expect(rows[0].name).toBe("test1");
+    expect(rows[0]!.name).toBe("test1");
 
     client.close();
   });

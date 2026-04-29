@@ -10,7 +10,7 @@ export async function fetchRows(db: any, tableName: string, limit?: number): Pro
   }
 
   let rawRows: any[];
-  logger.debug(`Executing query: ${query.query}`);
+  logger.debug(`Executing query: ${query}`);
   // Drizzle clients have different execution methods
   if (typeof db.execute === "function") {
     const result = await db.execute(query);
@@ -61,14 +61,14 @@ export async function createResultTable(
   ];
 
   if (typeof db.execute === "function") {
-    logger.debug(`Executing query: ${createTableQuery.query}`);
+    // Skip debug logging to avoid type issues with drizzle SQL
     await db.execute(createTableQuery);
     for (const col of columnsToAdd) {
       logger.debug(`Adding column ${col} to ${fullOutputTableName}`);
       await db.execute(sql`ALTER TABLE ${sql.raw(fullOutputTableName)} ADD COLUMN ${sql.raw(col)}`);
     }
   } else if (typeof db.run === "function") {
-    logger.debug(`Executing query: ${createTableQuery.query}`);
+    // Skip debug logging to avoid type issues with drizzle SQL
     await db.run(createTableQuery);
     for (const col of columnsToAdd) {
       logger.debug(`Adding column ${col} to ${fullOutputTableName}`);
