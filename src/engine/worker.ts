@@ -12,11 +12,18 @@ export type WorkerInput = {
   threshold: number;
 };
 
+export type WorkerMatchDetail = {
+  idA: string;
+  idB: string;
+  score: number;
+  matchedRules: string[];
+};
+
 /**
  * The output type for the worker function.
- * An array of tuples, where each tuple represents a pair of row IDs identified as duplicates.
+ * An array of match details identified as duplicates.
  */
-export type WorkerOutput = [string, string][];
+export type WorkerOutput = WorkerMatchDetail[];
 
 /**
  * The main function executed by each worker thread.
@@ -35,10 +42,15 @@ export function processBlock(input: WorkerInput): WorkerOutput {
       const rowA = rows[i]!;
       const rowB = rows[j]!;
 
-      const score = scoreRows(rowA, rowB, rules);
+      const { score, matchedRules } = scoreRows(rowA, rowB, rules);
 
       if (score >= threshold) {
-        duplicatesFound.push([rowA._id, rowB._id]);
+        duplicatesFound.push({
+          idA: rowA._id,
+          idB: rowB._id,
+          score,
+          matchedRules,
+        });
       }
     }
   }

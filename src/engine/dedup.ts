@@ -6,50 +6,16 @@ import { scoreRows } from "@/engine/scorer";
 import { UnionFind } from "@/engine/grouper";
 import type { WorkerInput, WorkerOutput } from "@/engine/worker";
 
-/**
- * A simple console-based progress reporter for tracking block processing.
- */
-interface ProgressReporter {
-  _lastPercentage: number;
-  _total: number;
-  start: (total: number) => void;
-  update: (current: number, total: number) => void;
-  stop: () => void;
-}
+import type { DedupProgressBar } from "@/reporter/progress";
+import type { WorkerMatchDetail } from "@/engine/worker";
 
-const simpleProgressReporter: ProgressReporter = {
-  _lastPercentage: -1,
-  _total: 0,
-  start(total: number) {
-    this._total = total;
-    this._lastPercentage = -1;
-    process.stdout.write(
-      chalk.cyan("  Processing blocks: [") +
-        chalk.gray("░".repeat(20)) +
-        chalk.cyan("] 0%\r"),
-    );
-  },
-  update(current: number, total: number) {
-    const percentage = Math.floor((current / total) * 100);
-    if (percentage > this._lastPercentage) {
-      const filled = Math.floor(percentage / 5);
-      const empty = 20 - filled;
-      process.stdout.write(
-        chalk.cyan("  Processing blocks: [") +
-          chalk.green("█".repeat(filled)) +
-          chalk.gray("░".repeat(empty)) +
-          chalk.cyan(`] ${percentage}%\r`),
-      );
-      this._lastPercentage = percentage;
-    }
-  },
-  stop() {
-    process.stdout.write(
-      chalk.cyan("  Processing blocks: [") +
-        chalk.green("█".repeat(20)) +
-        chalk.cyan("] 100% ✓\n"),
-    );
-  },
+export type DedupMetadata = {
+  _id: string;
+  canonical_id: string;
+  group_id: string;
+  is_duplicate: boolean;
+  duplicate_score: number | null;
+  matched_rules: string[];
 };
 
 /**
@@ -59,7 +25,8 @@ const simpleProgressReporter: ProgressReporter = {
 export async function runDedup(
   rows: Row[],
   config: Config,
-): Promise<Map<string, string>> {
+  progressBar?: DedupProgressBar
+): Promise<{ groupMap: Map<string, string>; dedupMetadata: DedupMetadata[] }> {
   const uf = new UnionFind(rows.map((r) => String(r._id)));
   const { strategy, blocking_column, concurrency } = config.processing;
   const threshold = config.threshold;
@@ -67,21 +34,13 @@ export async function runDedup(
 
   let pool: Piscina | null = null;
 
+  let allMatchDetails: WorkerMatchDetail[] = [];
+
   try {
     if (strategy === "block" && blocking_column) {
-      console.log(
-        chalk.cyan(
-          `Processing with blocking strategy on column: ${blocking_column}`,
-        ),
-      );
-
+      if (progressBar) progressBar.start("Building blocks", 1);
       const blocks = groupByBlockingKey(rows, blocking_column);
-      console.log(chalk.green(`✓ Generated ${blocks.size} blocks.`));
-      console.log(
-        chalk.cyan(
-          `  Initializing worker pool with ${concurrency} threads...`,
-        ),
-      );
+      if (progressBar) progressBar.stop("Building blocks");
 
       // Initialize Piscina worker pool
       pool = new Piscina({
@@ -89,13 +48,11 @@ export async function runDedup(
         minThreads: 1,
         maxThreads: concurrency,
       });
-      console.log(chalk.green("✓ Worker pool ready."));
 
       const blockKeys = Array.from(blocks.keys());
       const totalBlocks = blockKeys.length;
-      let processedBlocks = 0;
-
-      simpleProgressReporter.start(totalBlocks);
+      
+      if (progressBar) progressBar.start("Comparing pairs", totalBlocks);
 
       // Map each block to a promise for worker execution
       const tasks: Promise<WorkerOutput>[] = blockKeys.map((key) => {
@@ -106,61 +63,93 @@ export async function runDedup(
           threshold,
         };
         return pool!.run(workerInput).then((result: WorkerOutput) => {
-          processedBlocks++;
-          simpleProgressReporter.update(processedBlocks, totalBlocks);
+          if (progressBar) progressBar.increment("Comparing pairs");
           return result;
+        }).catch(err => {
+          console.error("Worker error:", err);
+          throw err;
         });
       });
 
       // Wait for all worker tasks to complete
       const allDuplicatePairs = await Promise.all(tasks);
-      simpleProgressReporter.stop();
+      if (progressBar) progressBar.stop("Comparing pairs");
 
-      console.log(chalk.cyan("Merging results from worker threads..."));
-      let totalDuplicatesFound = 0;
       for (const duplicatePairs of allDuplicatePairs) {
-        for (const [idA, idB] of duplicatePairs) {
+        allMatchDetails.push(...duplicatePairs);
+        for (const { idA, idB } of duplicatePairs) {
           uf.union(idA!, idB!);
-          totalDuplicatesFound++;
         }
       }
-      console.log(
-        chalk.green(
-          `✓ Merged ${totalDuplicatesFound} duplicate pairs from workers.`,
-        ),
-      );
     } else {
       // Fallback to full_scan strategy or if blocking_column is missing
-      console.log(
-        chalk.cyan(
-          "Processing with full scan strategy (or blocking_column missing).",
-        ),
-      );
-      await processFullScan(rows, rules, threshold, uf);
+      if (progressBar) progressBar.start("Comparing pairs", 1);
+      const matchDetails = await processFullScan(rows, rules, threshold, uf);
+      allMatchDetails.push(...matchDetails);
+      if (progressBar) progressBar.stop("Comparing pairs");
     }
 
-    console.log(`Found ${uf.getGroupCount()} distinct groups.`);
-    return uf.getGroupMap();
+    const groupMap = uf.getGroupMap();
+    
+    // Calculate best score and matched rules for each duplicate row
+    const metadataMap = new Map<string, { maxScore: number, rules: Set<string> }>();
+    for (const match of allMatchDetails) {
+      const updateMeta = (id: string, score: number, rules: string[]) => {
+        const existing = metadataMap.get(id);
+        if (!existing || score > existing.maxScore) {
+          metadataMap.set(id, { maxScore: score, rules: new Set(rules) });
+        } else if (score === existing.maxScore) {
+          rules.forEach(r => existing.rules.add(r));
+        }
+      };
+      updateMeta(match.idA, match.score, match.matchedRules);
+      updateMeta(match.idB, match.score, match.matchedRules);
+    }
+
+    const dedupMetadata: DedupMetadata[] = rows.map(r => {
+      const idStr = String(r._id);
+      const canonical_id = groupMap.get(idStr) || idStr;
+      const group_id = canonical_id;
+      const is_duplicate = canonical_id !== idStr;
+      let duplicate_score: number | null = null;
+      let matched_rules: string[] = [];
+
+      if (is_duplicate || metadataMap.has(idStr)) {
+        const meta = metadataMap.get(idStr);
+        if (meta) {
+          duplicate_score = meta.maxScore;
+          matched_rules = Array.from(meta.rules);
+        }
+      }
+
+      return {
+        _id: idStr,
+        canonical_id,
+        group_id,
+        is_duplicate,
+        duplicate_score,
+        matched_rules
+      };
+    });
+
+    return { groupMap, dedupMetadata };
   } finally {
     // Ensure the worker pool is destroyed even if an error occurs
     if (pool) {
-      console.log(chalk.cyan("Shutting down worker pool..."));
-      await pool.destroy();
-      console.log(chalk.green("✓ Worker pool shut down."));
+      // await pool.destroy();
     }
   }
 }
 
-/**
- * Helper function to perform a full O(n^2) comparison within a set of rows.
- */
 export async function processFullScan(
   rows: Row[],
   rules: Config["rules"],
   threshold: number,
   uf: UnionFind,
-) {
+): Promise<import("@/engine/worker").WorkerMatchDetail[]> {
   const numRows = rows.length;
+  const matchDetails: import("@/engine/worker").WorkerMatchDetail[] = [];
+
   for (let i = 0; i < numRows; i++) {
     for (let j = i + 1; j < numRows; j++) {
       const rowA = rows[i]!;
@@ -171,13 +160,21 @@ export async function processFullScan(
         continue;
       }
 
-      const score = scoreRows(rowA, rowB, rules);
+      const { score, matchedRules } = scoreRows(rowA, rowB, rules);
 
       if (score >= threshold) {
         uf.union(rowA._id, rowB._id);
+        matchDetails.push({
+          idA: rowA._id,
+          idB: rowB._id,
+          score,
+          matchedRules,
+        });
       }
     }
   }
+
+  return matchDetails;
 }
 
 /**

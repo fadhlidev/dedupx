@@ -6,9 +6,10 @@ import type { Row } from "@/engine/types";
  * Calculates a combined similarity score between two Row objects based on configured rules.
  * The score is a weighted average of individual comparator scores.
  */
-export function scoreRows(rowA: Row, rowB: Row, rules: Rule[]): number {
+export function scoreRows(rowA: Row, rowB: Row, rules: Rule[]): { score: number; matchedRules: string[] } {
   let totalWeight = 0;
   let weightedScore = 0;
+  let matchedRules: string[] = [];
 
   for (const rule of rules) {
     // Concatenate column values into a single string for comparison
@@ -30,10 +31,17 @@ export function scoreRows(rowA: Row, rowB: Row, rules: Rule[]): number {
       score = comparator.compare(valA, valB, rule.options as any);
     }
 
+    if (score > 0) {
+      matchedRules.push(rule.name);
+    }
+
     weightedScore += score * rule.weight;
     totalWeight += rule.weight;
   }
 
   // Avoid division by zero if no rules or all weights are zero
-  return totalWeight === 0 ? 0 : weightedScore / totalWeight;
+  return {
+    score: totalWeight === 0 ? 0 : weightedScore / totalWeight,
+    matchedRules,
+  };
 }
