@@ -5,6 +5,7 @@ import type { Row } from "@/engine/types";
 import { scoreRows } from "@/engine/scorer";
 import { UnionFind } from "@/engine/grouper";
 import type { WorkerInput, WorkerOutput } from "@/engine/worker";
+import { logger } from "@/utils/logger";
 
 import type { DedupProgressBar } from "@/reporter/progress";
 import type { WorkerMatchDetail } from "@/engine/worker";
@@ -66,7 +67,7 @@ export async function runDedup(
           if (progressBar) progressBar.increment("Comparing pairs");
           return result;
         }).catch(err => {
-          console.error("Worker error:", err);
+          logger.error("Worker error:", err);
           throw err;
         });
       });

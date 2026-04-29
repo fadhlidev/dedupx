@@ -1,6 +1,7 @@
 import type { Rule } from "@/config/schema";
 import { comparatorRegistry } from "@/comparators";
 import type { Row } from "@/engine/types";
+import { logger } from "@/utils/logger";
 
 /**
  * Calculates a combined similarity score between two Row objects based on configured rules.
@@ -18,7 +19,7 @@ export function scoreRows(rowA: Row, rowB: Row, rules: Rule[]): { score: number;
 
     const comparator = comparatorRegistry[rule.comparator];
     if (!comparator) {
-      console.warn(`Comparator '${rule.comparator}' not found. Skipping rule: ${rule.name}`);
+      logger.warn(`Comparator '${rule.comparator}' not found. Skipping rule: ${rule.name}`);
       continue;
     }
 
